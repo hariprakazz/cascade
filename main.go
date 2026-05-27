@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,8 +15,8 @@ type pkgConfig struct {
 	Deps []string `json:"deps"`
 }
 
-func getChangedFiles(base string) ([]string, error) {
-	out, err := exec.Command("git", "diff", "--name-only", base).Output()
+func getChangedFiles(base, head string) ([]string, error) {
+	out, err := exec.Command("git", "diff", "--name-only", base, head).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -60,16 +61,31 @@ func loadGraph(dir string) (map[string][]string, error) {
 
 func findAffected(changed []string, graph map[string][]string) []string {
 	affected := map[string]bool{}
+
 	for _, pkg := range changed {
 		affected[pkg] = true
 	}
-	for pkg, deps := range graph {
-		for _, dep := range deps {
-			if affected[dep] {
-				affected[pkg] = true
+
+	// keep sweeping until nothing new is added
+	for {
+		added := false
+		for pkg, deps := range graph {
+			if affected[pkg] {
+				continue
+			}
+			for _, dep := range deps {
+				if affected[dep] {
+					affected[pkg] = true
+					added = true
+					break
+				}
 			}
 		}
+		if !added {
+			break
+		}
 	}
+
 	result := []string{}
 	for pkg := range affected {
 		result = append(result, pkg)
@@ -78,16 +94,30 @@ func findAffected(changed []string, graph map[string][]string) []string {
 }
 
 func main() {
-	files, err := getChangedFiles("HEAD")
+	base := flag.String("base", "HEAD~1", "base ref to diff against (e.g. main, HEAD~1, a commit SHA)")
+	head := flag.String("head", "HEAD", "head ref (default: current HEAD)")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "cascade — affected package detector for monorepos\n\n")
+		fmt.Fprintf(os.Stderr, "Usage:\n  cascade [flags]\n\nFlags:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  cascade --base=main\n")
+		fmt.Fprintf(os.Stderr, "  cascade --base=main --head=HEAD\n")
+	}
+
+	flag.Parse()
+
+	files, err := getChangedFiles(*base, *head)
 	if err != nil {
-		fmt.Println("couldn't get changes:", err)
-		return
+		fmt.Fprintf(os.Stderr, "error: couldn't get changed files: %v\n", err)
+		os.Exit(1)
 	}
 
 	graph, err := loadGraph("packages")
 	if err != nil {
-		fmt.Println("couldn't load packages:", err)
-		return
+		fmt.Fprintf(os.Stderr, "error: couldn't load packages: %v\n", err)
+		os.Exit(1)
 	}
 
 	changed := []string{}
