@@ -96,6 +96,7 @@ func findAffected(changed []string, graph map[string][]string) []string {
 func main() {
 	base := flag.String("base", "HEAD~1", "base ref to diff against (e.g. main, HEAD~1, a commit SHA)")
 	head := flag.String("head", "HEAD", "head ref (default: current HEAD)")
+	format := flag.String("format", "plain", "output format: plain | json")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "cascade — affected package detector for monorepos\n\n")
@@ -103,7 +104,7 @@ func main() {
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  cascade --base=main\n")
-		fmt.Fprintf(os.Stderr, "  cascade --base=main --head=HEAD\n")
+		fmt.Fprintf(os.Stderr, "  cascade --base=main --format=json\n")
 	}
 
 	flag.Parse()
@@ -132,8 +133,14 @@ func main() {
 
 	affected := findAffected(changed, graph)
 
-	fmt.Println("affected packages:")
-	for _, pkg := range affected {
-		fmt.Println(" ", pkg)
+	switch *format {
+	case "json":
+		out, _ := json.MarshalIndent(map[string][]string{"affected": affected}, "", "  ")
+		fmt.Println(string(out))
+	default:
+		fmt.Println("affected packages:")
+		for _, pkg := range affected {
+			fmt.Println(" ", pkg)
+		}
 	}
 }
