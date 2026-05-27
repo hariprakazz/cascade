@@ -7,7 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 type pkgConfig struct {
@@ -66,7 +68,6 @@ func findAffected(changed []string, graph map[string][]string) []string {
 		affected[pkg] = true
 	}
 
-	// keep sweeping until nothing new is added
 	for {
 		added := false
 		for pkg, deps := range graph {
@@ -121,6 +122,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	start := time.Now()
+
 	changed := []string{}
 	seen := map[string]bool{}
 	for _, f := range files {
@@ -132,15 +135,36 @@ func main() {
 	}
 
 	affected := findAffected(changed, graph)
+	elapsed := time.Since(start)
+	skipped := len(graph) - len(affected)
+
+	sort.Strings(affected)
 
 	switch *format {
 	case "json":
 		out, _ := json.MarshalIndent(map[string][]string{"affected": affected}, "", "  ")
 		fmt.Println(string(out))
 	default:
-		fmt.Println("affected packages:")
-		for _, pkg := range affected {
-			fmt.Println(" ", pkg)
+		cyan := "\033[36m"
+		green := "\033[32m"
+		yellow := "\033[33m"
+		gray := "\033[90m"
+		reset := "\033[0m"
+
+		fmt.Printf("\n%s cascade results%s\n", cyan, reset)
+		fmt.Printf("%s─────────────────%s\n", gray, reset)
+
+		if len(affected) == 0 {
+			fmt.Printf("%s✔ nothing affected%s\n", green, reset)
+		} else {
+			for _, pkg := range affected {
+				fmt.Printf("  %s▸%s %s\n", yellow, reset, pkg)
+			}
 		}
+
+		fmt.Printf("%s─────────────────%s\n", gray, reset)
+		fmt.Printf("  %s✔ %d affected  •  %d skipped  •  %s%s\n",
+			green, len(affected), skipped, elapsed.Round(time.Microsecond), reset)
+		fmt.Println()
 	}
 }
