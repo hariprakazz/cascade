@@ -14,10 +14,6 @@ import (
 	"time"
 )
 
-type pkgConfig struct {
-	Name string   `json:"name"`
-	Deps []string `json:"deps"`
-}
 
 func getChangedFiles(base, head string) ([]string, error) {
 	out, err := exec.Command("git", "diff", "--name-only", base, head).Output()
