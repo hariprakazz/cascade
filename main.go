@@ -69,16 +69,34 @@ func loadGraph(dir string) (map[string][]string, error) {
 		if !e.IsDir() {
 			continue
 		}
-		cfgPath := filepath.Join(dir, e.Name(), "cascade.json")
-		data, err := os.ReadFile(cfgPath)
+		pkgName := e.Name()
+		pkgDir := filepath.Join(dir, pkgName)
+
+		files, err := os.ReadDir(pkgDir)
 		if err != nil {
 			continue
 		}
-		var cfg pkgConfig
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			continue
+
+		depSet := map[string]bool{}
+		for _, f := range files {
+			if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") {
+				continue
+			}
+			deps, err := parseImports(filepath.Join(pkgDir, f.Name()))
+			if err != nil {
+				continue
+			}
+			for _, d := range deps {
+				depSet[d] = true
+			}
 		}
-		graph[cfg.Name] = cfg.Deps
+
+		deps := []string{}
+		for d := range depSet {
+			deps = append(deps, d)
+		}
+		sort.Strings(deps)
+		graph[pkgName] = deps
 	}
 	return graph, nil
 }

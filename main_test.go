@@ -63,20 +63,22 @@ func TestFindAffectedDisconnected(t *testing.T) {
 func TestLoadGraph(t *testing.T) {
 	dir := t.TempDir()
 
-	pkgs := map[string]string{
-		"auth": `{"name":"auth","deps":[]}`,
-		"api":  `{"name":"api","deps":["auth"]}`,
+	authDir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	authSrc := "package auth\n\nfunc Login() string { return \"ok\" }\n"
+	if err := os.WriteFile(filepath.Join(authDir, "login.go"), []byte(authSrc), 0644); err != nil {
+		t.Fatal(err)
 	}
 
-	for name, content := range pkgs {
-		pkgDir := filepath.Join(dir, name)
-		if err := os.Mkdir(pkgDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		cfgPath := filepath.Join(pkgDir, "cascade.json")
-		if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
+	apiDir := filepath.Join(dir, "api")
+	if err := os.Mkdir(apiDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	apiSrc := "package api\n\nimport \"github.com/hariprakazz/cascade/packages/auth\"\n\nfunc Serve() string { return auth.Login() }\n"
+	if err := os.WriteFile(filepath.Join(apiDir, "server.go"), []byte(apiSrc), 0644); err != nil {
+		t.Fatal(err)
 	}
 
 	got, err := loadGraph(dir)
@@ -94,27 +96,22 @@ func TestLoadGraph(t *testing.T) {
 	}
 }
 
-func TestLoadGraphSkipsInvalidConfig(t *testing.T) {
+func TestLoadGraphSkipsUnparseableFile(t *testing.T) {
 	dir := t.TempDir()
 
-	good := filepath.Join(dir, "auth")
-	if err := os.Mkdir(good, 0755); err != nil {
+	authDir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(authDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(good, "cascade.json"), []byte(`{"name":"auth","deps":[]}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	broken := filepath.Join(dir, "api")
-	if err := os.Mkdir(broken, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(broken, "cascade.json"), []byte(`{not valid json`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "login.go"), []byte("package auth\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	missing := filepath.Join(dir, "dashboard")
-	if err := os.Mkdir(missing, 0755); err != nil {
+	brokenDir := filepath.Join(dir, "broken")
+	if err := os.Mkdir(brokenDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(brokenDir, "bad.go"), []byte("not even go code {{{"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,7 +121,8 @@ func TestLoadGraphSkipsInvalidConfig(t *testing.T) {
 	}
 
 	want := map[string][]string{
-		"auth": {},
+		"auth":   {},
+		"broken": {},
 	}
 
 	if !reflect.DeepEqual(got, want) {
