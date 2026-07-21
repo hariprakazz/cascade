@@ -1,1 +1,1 @@
-//auth package
+package auth
