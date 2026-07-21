@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +37,26 @@ func getPackage(filePath string) string {
 		return "root"
 	}
 	return parts[1]
+}
+
+const modulePrefix = "github.com/hariprakazz/cascade/packages/"
+
+func parseImports(filePath string) ([]string, error) {
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, filePath, nil, parser.ImportsOnly)
+	if err != nil {
+		return nil, err
+	}
+
+	deps := []string{}
+	for _, imp := range node.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		if strings.HasPrefix(path, modulePrefix) {
+			dep := strings.TrimPrefix(path, modulePrefix)
+			deps = append(deps, dep)
+		}
+	}
+	return deps, nil
 }
 
 func loadGraph(dir string) (map[string][]string, error) {
