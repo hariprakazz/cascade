@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"strings"
 	"time"
 )
-
 
 func getChangedFiles(base, head string) ([]string, error) {
 	out, err := exec.Command("git", "diff", "--name-only", base, head).Output()
@@ -76,6 +76,10 @@ func loadGraph(dir string) (map[string][]string, error) {
 		depSet := map[string]bool{}
 		for _, f := range files {
 			if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") {
+				continue
+			}
+			match, err := build.Default.MatchFile(pkgDir, f.Name())
+			if err != nil || !match {
 				continue
 			}
 			deps, err := parseImports(filepath.Join(pkgDir, f.Name()))
