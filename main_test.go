@@ -159,3 +159,33 @@ func TestLoadGraphSkipsBuildTaggedFile(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestLoadGraphSkipsTestFileImports(t *testing.T) {
+	dir := t.TempDir()
+
+	authDir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.go"), []byte("package auth\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	testSrc := "package auth\n\nimport (\n\t\"testing\"\n\n\t\"github.com/hariprakazz/cascade/packages/dashboard\"\n)\n\nfunc TestSomething(t *testing.T) {\n\t_ = dashboard.Foo\n}\n"
+	if err := os.WriteFile(filepath.Join(authDir, "login_test.go"), []byte(testSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := loadGraph(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string][]string{
+		"auth": {},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}

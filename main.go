@@ -75,7 +75,7 @@ func loadGraph(dir string) (map[string][]string, error) {
 
 		depSet := map[string]bool{}
 		for _, f := range files {
-			if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") {
+			if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") || strings.HasSuffix(f.Name(), "_test.go") {
 				continue
 			}
 			match, err := build.Default.MatchFile(pkgDir, f.Name())
