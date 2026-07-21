@@ -129,3 +129,33 @@ func TestLoadGraphSkipsUnparseableFile(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestLoadGraphSkipsBuildTaggedFile(t *testing.T) {
+	dir := t.TempDir()
+
+	authDir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.go"), []byte("package auth\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	linuxOnly := "//go:build linux\n\npackage auth\n\nimport \"github.com/hariprakazz/cascade/packages/dashboard\"\n"
+	if err := os.WriteFile(filepath.Join(authDir, "linux_only.go"), []byte(linuxOnly), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := loadGraph(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string][]string{
+		"auth": {},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
