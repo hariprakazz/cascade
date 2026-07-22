@@ -246,3 +246,51 @@ func TestGetPackageFromCargoToml(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestParseDubDeps(t *testing.T) {
+	got, err := parseDubDeps("packages/tool/dub.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"auth"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestLoadGraphIncludesDubDeps(t *testing.T) {
+	dir := t.TempDir()
+
+	authDir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.go"), []byte("package auth\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	toolDir := filepath.Join(dir, "tool")
+	if err := os.Mkdir(toolDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	dubSrc := `{"name":"tool","dependencies":{"auth":"~>1.0.0"}}`
+	if err := os.WriteFile(filepath.Join(toolDir, "dub.json"), []byte(dubSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := loadGraph(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string][]string{
+		"auth": {},
+		"tool": {"auth"},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}

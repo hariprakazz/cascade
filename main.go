@@ -82,6 +82,29 @@ func parseCargoDeps(filePath string) ([]string, error) {
 	return deps, nil
 }
 
+type dubConfig struct {
+	Dependencies map[string]interface{} `json:"dependencies"`
+}
+
+func parseDubDeps(filePath string) ([]string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg dubConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	deps := []string{}
+	for name := range cfg.Dependencies {
+		deps = append(deps, name)
+	}
+	sort.Strings(deps)
+	return deps, nil
+}
+
 func loadGraph(dir string) (map[string][]string, error) {
 	graph := map[string][]string{}
 	entries, err := os.ReadDir(dir)
@@ -106,6 +129,17 @@ func loadGraph(dir string) (map[string][]string, error) {
 				continue
 			}
 			name := f.Name()
+
+			if name == "dub.json" {
+				deps, err := parseDubDeps(filepath.Join(pkgDir, name))
+				if err != nil {
+					continue
+				}
+				for _, d := range deps {
+					depSet[d] = true
+				}
+				continue
+			}
 
 			if name == "Cargo.toml" {
 				deps, err := parseCargoDeps(filepath.Join(pkgDir, name))

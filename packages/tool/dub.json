@@ -1,0 +1,6 @@
+{
+    "name": "tool",
+    "dependencies": {
+        "auth": "~>1.0.0"
+    }
+}
