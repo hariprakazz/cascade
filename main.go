@@ -55,6 +55,33 @@ func parseImports(filePath string) ([]string, error) {
 	return deps, nil
 }
 
+func parseCargoDeps(filePath string) ([]string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	deps := []string{}
+	inDeps := false
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			inDeps = trimmed == "[dependencies]"
+			continue
+		}
+		if !inDeps || trimmed == "" {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		deps = append(deps, name)
+	}
+	return deps, nil
+}
+
 func loadGraph(dir string) (map[string][]string, error) {
 	graph := map[string][]string{}
 	entries, err := os.ReadDir(dir)
@@ -75,14 +102,30 @@ func loadGraph(dir string) (map[string][]string, error) {
 
 		depSet := map[string]bool{}
 		for _, f := range files {
-			if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") || strings.HasSuffix(f.Name(), "_test.go") {
+			if f.IsDir() {
 				continue
 			}
-			match, err := build.Default.MatchFile(pkgDir, f.Name())
+			name := f.Name()
+
+			if name == "Cargo.toml" {
+				deps, err := parseCargoDeps(filepath.Join(pkgDir, name))
+				if err != nil {
+					continue
+				}
+				for _, d := range deps {
+					depSet[d] = true
+				}
+				continue
+			}
+
+			if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			match, err := build.Default.MatchFile(pkgDir, name)
 			if err != nil || !match {
 				continue
 			}
-			deps, err := parseImports(filepath.Join(pkgDir, f.Name()))
+			deps, err := parseImports(filepath.Join(pkgDir, name))
 			if err != nil {
 				continue
 			}

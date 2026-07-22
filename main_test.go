@@ -189,3 +189,51 @@ func TestLoadGraphSkipsTestFileImports(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestParseCargoDeps(t *testing.T) {
+	got, err := parseCargoDeps("packages/worker/Cargo.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"auth"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestLoadGraphIncludesCargoDeps(t *testing.T) {
+	dir := t.TempDir()
+
+	authDir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.go"), []byte("package auth\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	workerDir := filepath.Join(dir, "worker")
+	if err := os.Mkdir(workerDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cargoSrc := "[package]\nname = \"worker\"\nversion = \"0.1.0\"\n\n[dependencies]\nauth = { path = \"../auth\" }\n"
+	if err := os.WriteFile(filepath.Join(workerDir, "Cargo.toml"), []byte(cargoSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := loadGraph(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string][]string{
+		"auth":   {},
+		"worker": {"auth"},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
