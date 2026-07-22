@@ -237,3 +237,12 @@ func TestLoadGraphIncludesCargoDeps(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestGetPackageFromCargoToml(t *testing.T) {
+	got := getPackage("packages/worker/Cargo.toml")
+	want := "worker"
+
+	if got != want {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
