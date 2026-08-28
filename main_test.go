@@ -294,3 +294,39 @@ func TestLoadGraphIncludesDubDeps(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestLoadGraphHandlesRenamedFile(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "renamed")
+	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	oldPath := filepath.Join(pkgDir, "old.go")
+	newPath := filepath.Join(pkgDir, "new.go")
+	src := []byte("package renamed\n\nimport \"github.com/hariprakazz/cascade/packages/auth\"\n")
+	if err := os.WriteFile(oldPath, src, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(oldPath, newPath); err != nil {
+		t.Fatal(err)
+	}
+
+	graph, err := loadGraph(dir)
+	if err != nil {
+		t.Fatalf("loadGraph failed: %v", err)
+	}
+
+	deps, ok := graph["renamed"]
+	if !ok {
+		t.Fatal("expected package 'renamed' in graph after file rename")
+	}
+	found := false
+	for _, dep := range deps {
+		if dep == "auth" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected renamed package to still show import of auth, got deps: %v", deps)
+	}
+}
