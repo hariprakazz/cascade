@@ -179,28 +179,28 @@ func loadGraph(dir string) (map[string][]string, error) {
 }
 
 func findAffected(changed []string, graph map[string][]string) []string {
-	affected := map[string]bool{}
-
-	for _, pkg := range changed {
-		affected[pkg] = true
+	reverseDeps := map[string][]string{}
+	for pkg, deps := range graph {
+		for _, dep := range deps {
+			reverseDeps[dep] = append(reverseDeps[dep], pkg)
+		}
 	}
 
-	for {
-		added := false
-		for pkg, deps := range graph {
-			if affected[pkg] {
-				continue
+	affected := map[string]bool{}
+	queue := []string{}
+	for _, pkg := range changed {
+		affected[pkg] = true
+		queue = append(queue, pkg)
+	}
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		for _, dependent := range reverseDeps[curr] {
+			if !affected[dependent] {
+				affected[dependent] = true
+				queue = append(queue, dependent)
 			}
-			for _, dep := range deps {
-				if affected[dep] {
-					affected[pkg] = true
-					added = true
-					break
-				}
-			}
-		}
-		if !added {
-			break
 		}
 	}
 
