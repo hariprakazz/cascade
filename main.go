@@ -189,6 +189,10 @@ func findAffected(changed []string, graph map[string][]string) []string {
 	affected := map[string]bool{}
 	queue := []string{}
 	for _, pkg := range changed {
+		if _, ok := graph[pkg]; !ok {
+			fmt.Fprintf(os.Stderr, "warning: %q in changed set but not found in graph, skipping\n", pkg)
+			continue
+		}
 		affected[pkg] = true
 		queue = append(queue, pkg)
 	}

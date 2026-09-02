@@ -330,3 +330,19 @@ func TestLoadGraphHandlesRenamedFile(t *testing.T) {
 		t.Errorf("expected renamed package to still show import of auth, got deps: %v", deps)
 	}
 }
+
+func TestFindAffectedRejectsPhantomPackage(t *testing.T) {
+	graph := map[string][]string{
+		"auth": {"api"},
+		"api":  {},
+	}
+	changed := []string{"ghost"}
+
+	affected := findAffected(changed, graph)
+
+	for _, pkg := range affected {
+		if pkg == "ghost" {
+			t.Fatalf("findAffected returned phantom package %q not present in graph", "ghost")
+		}
+	}
+}
