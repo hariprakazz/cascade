@@ -472,3 +472,54 @@ func TestResolveEffectiveBaseHandlesMerge(t *testing.T) {
 		t.Errorf("expected resolveEffectiveBase to return root commit %s, got %s", rootCommit, got)
 	}
 }
+
+func TestMainUnshallowsShallowClone(t *testing.T) {
+	originDir := t.TempDir()
+	run := func(dir string, args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	run(originDir, "init", "-q")
+	run(originDir, "config", "user.email", "test@test.com")
+	run(originDir, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(originDir, "one.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run(originDir, "add", "-A")
+	run(originDir, "commit", "-q", "-m", "commit one")
+	if err := os.WriteFile(filepath.Join(originDir, "two.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run(originDir, "add", "-A")
+	run(originDir, "commit", "-q", "-m", "commit two")
+
+	shallowDir := t.TempDir()
+	cloneCmd := exec.Command("git", "clone", "-q", "--depth", "1", "file://"+originDir, shallowDir)
+	if out, err := cloneCmd.CombinedOutput(); err != nil {
+		t.Fatalf("shallow clone failed: %v\n%s", err, out)
+	}
+
+	isShallowOut, err := exec.Command("git", "-C", shallowDir, "rev-parse", "--is-shallow-repository").Output()
+	if err != nil {
+		t.Fatalf("is-shallow check failed: %v", err)
+	}
+	if strings.TrimSpace(string(isShallowOut)) != "true" {
+		t.Fatal("expected clone to be shallow before unshallowing")
+	}
+
+	if out, err := exec.Command("git", "-C", shallowDir, "fetch", "--unshallow", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("unshallow failed: %v\n%s", err, out)
+	}
+
+	afterOut, err := exec.Command("git", "-C", shallowDir, "rev-parse", "--is-shallow-repository").Output()
+	if err != nil {
+		t.Fatalf("is-shallow check after unshallow failed: %v", err)
+	}
+	if strings.TrimSpace(string(afterOut)) != "false" {
+		t.Errorf("expected repo to be fully unshallowed, got is-shallow=%s", strings.TrimSpace(string(afterOut)))
+	}
+}

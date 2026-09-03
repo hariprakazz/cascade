@@ -263,6 +263,15 @@ func main() {
 
 	flag.Parse()
 
+	if out, err := exec.Command("git", "rev-parse", "--is-shallow-repository").Output(); err == nil {
+		if strings.TrimSpace(string(out)) == "true" {
+			if _, err := exec.Command("git", "fetch", "--unshallow", "-q").CombinedOutput(); err != nil {
+				fmt.Fprintf(os.Stderr, "error: repo is a shallow clone and could not fetch full history: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	}
+
 	effectiveBase := *base
 	if *base == "HEAD~1" {
 		resolved, err := resolveEffectiveBase(*base, *head)
