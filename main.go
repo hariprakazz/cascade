@@ -67,9 +67,21 @@ func getPackage(filePath string) string {
 	return parts[1]
 }
 
-const modulePrefix = "github.com/hariprakazz/cascade/packages/"
+func readModulePath(gomodPath string) (string, error) {
+	data, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "module ")), nil
+		}
+	}
+	return "", fmt.Errorf("no module directive found in %s", gomodPath)
+}
 
-func parseImports(filePath string) ([]string, error) {
+func parseImports(filePath, modulePrefix string) ([]string, error) {
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, filePath, nil, parser.ImportsOnly)
 	if err != nil {
@@ -137,7 +149,7 @@ func parseDubDeps(filePath string) ([]string, error) {
 	return deps, nil
 }
 
-func loadGraph(dir string) (map[string][]string, error) {
+func loadGraph(dir, modulePrefix string) (map[string][]string, error) {
 	graph := map[string][]string{}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -191,7 +203,7 @@ func loadGraph(dir string) (map[string][]string, error) {
 			if err != nil || !match {
 				continue
 			}
-			deps, err := parseImports(filepath.Join(pkgDir, name))
+			deps, err := parseImports(filepath.Join(pkgDir, name), modulePrefix)
 			if err != nil {
 				continue
 			}
@@ -251,6 +263,7 @@ func main() {
 	base := flag.String("base", "HEAD~1", "base ref to diff against (e.g. main, HEAD~1, a commit SHA)")
 	head := flag.String("head", "HEAD", "head ref (default: current HEAD)")
 	format := flag.String("format", "plain", "output format: plain | json")
+	pkgsDir := flag.String("packages-dir", "packages", "directory containing packages, relative to repo root")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "cascade — affected package detector for monorepos\n\n")
@@ -288,7 +301,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	graph, err := loadGraph("packages")
+	modulePath, err := readModulePath("go.mod")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: couldn't read go.mod: %v\n", err)
+		os.Exit(1)
+	}
+	modulePrefix := modulePath + "/" + *pkgsDir + "/"
+
+	graph, err := loadGraph(*pkgsDir, modulePrefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: couldn't load packages: %v\n", err)
 		os.Exit(1)

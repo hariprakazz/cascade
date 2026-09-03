@@ -83,7 +83,7 @@ func TestLoadGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := loadGraph(dir)
+	got, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestLoadGraphSkipsUnparseableFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := loadGraph(dir)
+	got, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestLoadGraphSkipsBuildTaggedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := loadGraph(dir)
+	got, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestLoadGraphSkipsTestFileImports(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := loadGraph(dir)
+	got, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestLoadGraphIncludesCargoDeps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := loadGraph(dir)
+	got, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestLoadGraphIncludesDubDeps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := loadGraph(dir)
+	got, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func TestLoadGraphHandlesRenamedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	graph, err := loadGraph(dir)
+	graph, err := loadGraph(dir, "github.com/hariprakazz/cascade/packages/")
 	if err != nil {
 		t.Fatalf("loadGraph failed: %v", err)
 	}
@@ -521,5 +521,70 @@ func TestMainUnshallowsShallowClone(t *testing.T) {
 	}
 	if strings.TrimSpace(string(afterOut)) != "false" {
 		t.Errorf("expected repo to be fully unshallowed, got is-shallow=%s", strings.TrimSpace(string(afterOut)))
+	}
+}
+
+func TestReadModulePath(t *testing.T) {
+	dir := t.TempDir()
+	gomodPath := filepath.Join(dir, "go.mod")
+	content := "module github.com/someoneelse/theirrepo\n\ngo 1.21\n"
+	if err := os.WriteFile(gomodPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := readModulePath(gomodPath)
+	if err != nil {
+		t.Fatalf("readModulePath failed: %v", err)
+	}
+
+	want := "github.com/someoneelse/theirrepo"
+	if got != want {
+		t.Errorf("expected module path %q, got %q", want, got)
+	}
+}
+
+func TestLoadGraphUsesDynamicModulePrefix(t *testing.T) {
+	dir := t.TempDir()
+	fooDir := filepath.Join(dir, "foo")
+	barDir := filepath.Join(dir, "bar")
+	if err := os.MkdirAll(fooDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(barDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(fooDir, "main.go"), []byte("package foo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	barSrc := `package bar
+
+import "github.com/someoneelse/theirrepo/foo"
+
+func Use() {
+	_ = foo.Thing
+}
+`
+	if err := os.WriteFile(filepath.Join(barDir, "main.go"), []byte(barSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	graph, err := loadGraph(dir, "github.com/someoneelse/theirrepo/")
+	if err != nil {
+		t.Fatalf("loadGraph failed: %v", err)
+	}
+
+	deps, ok := graph["bar"]
+	if !ok {
+		t.Fatal("expected package 'bar' in graph")
+	}
+	found := false
+	for _, d := range deps {
+		if d == "foo" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected bar to depend on foo under dynamic module prefix, got deps: %v", deps)
 	}
 }
