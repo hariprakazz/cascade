@@ -1,0 +1,40 @@
+name: build affected packages
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-affected:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.cascade.outputs.matrix }}
+    steps:
+      # fetch-depth: 0 avoids a shallow clone entirely, cascade also
+      # auto-unshallows on its own if this is omitted or set otherwise
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: run cascade
+        id: cascade
+        run: |
+          MATRIX=$(go run . --base=${{ github.event.pull_request.base.sha }} --head=${{ github.sha }} --format=github-matrix)
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: detect-affected
+    if: needs.detect-affected.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.detect-affected.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build ${{ matrix.package }}
+        run: echo "building packages/${{ matrix.package }}"

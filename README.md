@@ -51,6 +51,12 @@ flags:
 - `--format`, `plain` (default) or `json`
 - `--packages-dir`, directory containing packages, relative to repo root (default `packages`)
 
+`--format=github-matrix` outputs a plain JSON array of affected package names,
+consumable directly in a matrix strategy. See
+`.github/workflows/affected-build.yml.example` for a working setup: one job
+runs cascade to generate the matrix, a second job fans out a build per
+affected package.
+
 ## benchmark
 
 `benchmark/generate.sh` builds a reproducible 11-package multi-language fixture
@@ -87,5 +93,5 @@ language's build tooling.
 - [x] D (`dub.json`) support
 - [x] rename, merge-commit, and shallow-clone correctness
 - [x] benchmark against a reproducible multi-language fixture (real public repo matching cascade's model does not exist yet)
-- [ ] `--format=github-matrix` and GitHub Actions integration
+- [x] `--format=github-matrix` and GitHub Actions integration
 - [ ] `--visualize`, print the dependency tree
