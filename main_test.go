@@ -411,3 +411,64 @@ func TestGetChangedFilesHandlesRename(t *testing.T) {
 		t.Errorf("expected both old.go and new.go in changed files, got: %v", files)
 	}
 }
+
+func TestResolveEffectiveBaseHandlesMerge(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	run("init", "-q")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "test")
+
+	if err := os.WriteFile(filepath.Join(dir, "base.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "-A")
+	run("commit", "-q", "-m", "root")
+
+	run("checkout", "-q", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "feature.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "-A")
+	run("commit", "-q", "-m", "feature work")
+
+	run("checkout", "-q", "master")
+	if err := os.WriteFile(filepath.Join(dir, "master.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "-A")
+	run("commit", "-q", "-m", "master work")
+
+	run("merge", "--no-edit", "-q", "feature")
+
+	rootOut, err := exec.Command("git", "-C", dir, "rev-list", "--max-parents=0", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("failed to find root commit: %v", err)
+	}
+	rootCommit := strings.TrimSpace(string(rootOut))
+
+	oldCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldCwd)
+
+	got, err := resolveEffectiveBase("HEAD~1", "HEAD")
+	if err != nil {
+		t.Fatalf("resolveEffectiveBase failed: %v", err)
+	}
+
+	if got != rootCommit {
+		t.Errorf("expected resolveEffectiveBase to return root commit %s, got %s", rootCommit, got)
+	}
+}

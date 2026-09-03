@@ -15,6 +15,26 @@ import (
 	"time"
 )
 
+func resolveEffectiveBase(base, head string) (string, error) {
+	out, err := exec.Command("git", "rev-list", "--parents", "-n", "1", head).Output()
+	if err != nil {
+		return "", err
+	}
+	fields := strings.Fields(strings.TrimSpace(string(out)))
+	if len(fields) <= 2 {
+		return base, nil
+	}
+
+	firstParent := fields[1]
+	secondParent := fields[2]
+
+	mergeBaseOut, err := exec.Command("git", "merge-base", firstParent, secondParent).Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(mergeBaseOut)), nil
+}
+
 func getChangedFiles(base, head string) ([]string, error) {
 	out, err := exec.Command("git", "diff", "--name-status", base, head).Output()
 	if err != nil {
@@ -243,7 +263,17 @@ func main() {
 
 	flag.Parse()
 
-	files, err := getChangedFiles(*base, *head)
+	effectiveBase := *base
+	if *base == "HEAD~1" {
+		resolved, err := resolveEffectiveBase(*base, *head)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: couldn't resolve merge base: %v\n", err)
+			os.Exit(1)
+		}
+		effectiveBase = resolved
+	}
+
+	files, err := getChangedFiles(effectiveBase, *head)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: couldn't get changed files: %v\n", err)
 		os.Exit(1)
