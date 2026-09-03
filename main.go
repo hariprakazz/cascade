@@ -259,10 +259,18 @@ func findAffected(changed []string, graph map[string][]string) []string {
 	return result
 }
 
+func formatGithubMatrix(affected []string) (string, error) {
+	out, err := json.Marshal(affected)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 func main() {
 	base := flag.String("base", "HEAD~1", "base ref to diff against (e.g. main, HEAD~1, a commit SHA)")
 	head := flag.String("head", "HEAD", "head ref (default: current HEAD)")
-	format := flag.String("format", "plain", "output format: plain | json")
+	format := flag.String("format", "plain", "output format: plain | json | github-matrix")
 	pkgsDir := flag.String("packages-dir", "packages", "directory containing packages, relative to repo root")
 
 	flag.Usage = func() {
@@ -272,6 +280,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  cascade --base=main\n")
 		fmt.Fprintf(os.Stderr, "  cascade --base=main --format=json\n")
+	fmt.Fprintf(os.Stderr, "  cascade --base=main --format=github-matrix\n")
 	}
 
 	flag.Parse()
@@ -336,6 +345,13 @@ func main() {
 	case "json":
 		out, _ := json.MarshalIndent(map[string][]string{"affected": affected}, "", "  ")
 		fmt.Println(string(out))
+	case "github-matrix":
+		out, err := formatGithubMatrix(affected)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: couldn't build github-matrix output: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(out)
 	default:
 		cyan := "\033[36m"
 		green := "\033[32m"

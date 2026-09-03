@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -586,5 +587,33 @@ func Use() {
 	}
 	if !found {
 		t.Errorf("expected bar to depend on foo under dynamic module prefix, got deps: %v", deps)
+	}
+}
+
+func TestFormatGithubMatrix(t *testing.T) {
+	affected := []string{"api", "web", "cli"}
+
+	got, err := formatGithubMatrix(affected)
+	if err != nil {
+		t.Fatalf("formatGithubMatrix failed: %v", err)
+	}
+
+	var parsed []string
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput was: %s", err, got)
+	}
+
+	if !reflect.DeepEqual(parsed, affected) {
+		t.Errorf("expected %v, got %v", affected, parsed)
+	}
+}
+
+func TestFormatGithubMatrixEmpty(t *testing.T) {
+	got, err := formatGithubMatrix([]string{})
+	if err != nil {
+		t.Fatalf("formatGithubMatrix failed: %v", err)
+	}
+	if got != "[]" {
+		t.Errorf("expected empty array literal, got %q", got)
 	}
 }
