@@ -16,7 +16,7 @@ import (
 )
 
 func getChangedFiles(base, head string) ([]string, error) {
-	out, err := exec.Command("git", "diff", "--name-only", base, head).Output()
+	out, err := exec.Command("git", "diff", "--name-status", base, head).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +24,19 @@ func getChangedFiles(base, head string) ([]string, error) {
 	if raw == "" {
 		return []string{}, nil
 	}
-	return strings.Split(raw, "\n"), nil
+
+	paths := []string{}
+	for _, line := range strings.Split(raw, "\n") {
+		fields := strings.Split(line, "\t")
+		status := fields[0]
+		if strings.HasPrefix(status, "R") {
+			oldPath, newPath := fields[1], fields[2]
+			paths = append(paths, oldPath, newPath)
+			continue
+		}
+		paths = append(paths, fields[1])
+	}
+	return paths, nil
 }
 
 func getPackage(filePath string) string {

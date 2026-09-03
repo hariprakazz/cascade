@@ -2,9 +2,11 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -344,5 +346,68 @@ func TestFindAffectedRejectsPhantomPackage(t *testing.T) {
 		if pkg == "ghost" {
 			t.Fatalf("findAffected returned phantom package %q not present in graph", "ghost")
 		}
+	}
+}
+
+func TestGetChangedFilesHandlesRename(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	run("init", "-q")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "test")
+
+	oldPath := filepath.Join(dir, "old.go")
+	if err := os.WriteFile(oldPath, []byte("package foo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "-A")
+	run("commit", "-q", "-m", "initial")
+
+	newPath := filepath.Join(dir, "new.go")
+	if err := os.Rename(oldPath, newPath); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "-A")
+	run("commit", "-q", "-m", "rename old.go to new.go")
+
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "HEAD~1")
+	baseOut, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD~1 failed: %v", err)
+	}
+	base := strings.TrimSpace(string(baseOut))
+
+	oldCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldCwd)
+
+	files, err := getChangedFiles(base, "HEAD")
+	if err != nil {
+		t.Fatalf("getChangedFiles failed: %v", err)
+	}
+
+	hasOld, hasNew := false, false
+	for _, f := range files {
+		if f == "old.go" {
+			hasOld = true
+		}
+		if f == "new.go" {
+			hasNew = true
+		}
+	}
+	if !hasOld || !hasNew {
+		t.Errorf("expected both old.go and new.go in changed files, got: %v", files)
 	}
 }
