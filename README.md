@@ -61,7 +61,7 @@ go run main.go --base=main
 flags:
 - `--base`, base ref to diff against (default `HEAD~1`)
 - `--head`, head ref (default `HEAD`)
-- `--format`, `plain` (default) or `json`
+- `--format`, `plain` (default), `json`, or `github-matrix`
 - `--packages-dir`, directory containing packages, relative to repo root (default `packages`)
 
 `--format=github-matrix` outputs a plain JSON array of affected package names,
@@ -85,14 +85,13 @@ history. Anyone can regenerate it and verify these numbers independently:
 | core package (imported by nearly everything) | 9 / 11 | 2 | 7µs |
 | leaf + mid-tier package | 3 / 11 | 8 | 6µs |
 
-The point isn't that cascade always skips most packages. It's that it
-correctly identifies exactly which ones matter, every time, including the
-honest case where a core dependency change legitimately affects almost
-everything.
+A core-package change legitimately affects most of the graph, and cascade
+reports that honestly instead of pretending otherwise. The real savings show
+up on leaf and mid-tier changes, which are far more common day to day.
 
 ## status
 
-19 passing unit tests cover graph traversal, import parsing across all three
+21 passing unit tests cover graph traversal, import parsing across all three
 languages, build-constraint filtering, test-file exclusion, and the git edge
 cases above. Building this in public alongside my GSoC 2026 work on the D
 language's build tooling.
@@ -105,7 +104,7 @@ language's build tooling.
 - [x] Rust (`Cargo.toml`) support
 - [x] D (`dub.json`) support
 - [x] rename, merge-commit, and shallow-clone correctness
-- [x] benchmark against a reproducible multi-language fixture (real public repo matching cascade's model does not exist yet)
+- [x] benchmark against a reproducible multi-language fixture (no real public repo fit cascade's model)
 - [x] `--format=github-matrix` and GitHub Actions integration
 - [x] Homebrew install (tap points at this repo directly, no separate tap repo)
 - [ ] `--visualize`, print the dependency tree
