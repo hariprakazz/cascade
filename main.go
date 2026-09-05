@@ -274,7 +274,7 @@ func main() {
 	pkgsDir := flag.String("packages-dir", "packages", "directory containing packages, relative to repo root")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "cascade — affected package detector for monorepos\n\n")
+		fmt.Fprintf(os.Stderr, "cascade, affected package detector for monorepos\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n  cascade [flags]\n\nFlags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
