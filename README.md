@@ -37,12 +37,25 @@ The dependency graph is not hardcoded to this repo. `modulePrefix` is derived
 from the target repo's own `go.mod`, and `--packages-dir` lets you point
 cascade at any repo's actual package layout.
 
+## install
+
+```bash
+brew tap hariprakazz/cascade https://github.com/hariprakazz/cascade
+brew install hariprakazz/cascade/cascade
+```
+
 ## usage
 
 ```bash
+cascade --base=main
+cascade --base=main --head=HEAD --format=json
+cascade --base=main --packages-dir=apps
+```
+
+or, without installing:
+
+```bash
 go run main.go --base=main
-go run main.go --base=main --head=HEAD --format=json
-go run main.go --base=main --packages-dir=apps
 ```
 
 flags:
@@ -94,4 +107,5 @@ language's build tooling.
 - [x] rename, merge-commit, and shallow-clone correctness
 - [x] benchmark against a reproducible multi-language fixture (real public repo matching cascade's model does not exist yet)
 - [x] `--format=github-matrix` and GitHub Actions integration
+- [x] Homebrew install (tap points at this repo directly, no separate tap repo)
 - [ ] `--visualize`, print the dependency tree
